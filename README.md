@@ -4,22 +4,21 @@ Code for the project comparing resting state fMRI to invasive cortical stimulati
 ## Organization of the  project
 
 The project has the following structure:
-    . 
-    ├── Colormap-ThresholdedInvAutumn.mat 
-    ├── CompareStimToMLPThresh.m 
-    ├── ElecAndMLPonSurf.m 
-    ├── ElecAndMLPtoFSMask.m 
-    ├── GetAllDvars.m 
-    ├── GetDataDir.m 
-    ├── GetElectrodes.m 
-    ├── GetGridCoords.m 
-    ├── GetMLPMap.m 
-    ├── GetPatidListMotorOnly.m 
-    ├── MLPThresholdAvgOnMNIVolume.m 
-    ├── MLPThresholdMap.m 
-    ├── MLPThresholdOnRolandicMask.m 
-    ├── MLPvsFSonSurface.m 
-    ├── README.md 
-    ├── bork-CompareFreeSurferToMLPThresh.m 
-    └── clean-GetStimMappingResults.m 
-
+    .  
+    ├── Colormap-ThresholdedInvAutumn.mat  
+    ├── CompareStimToMLPThresh.m  
+    ├── ElecAndMLPonSurf.m  
+    ├── ElecAndMLPtoFSMask.m  
+    ├── GetAllDvars.m  
+    ├── GetDataDir.m  
+    ├── GetElectrodes.m  
+    ├── GetGridCoords.m  
+    ├── GetMLPMap.m  
+    ├── GetPatidListMotorOnly.m  
+    ├── MLPThresholdAvgOnMNIVolume.m  
+    ├── MLPThresholdMap.m  
+    ├── MLPThresholdOnRolandicMask.m  
+    ├── MLPvsFSonSurface.m  
+    ├── README.md  
+    ├── bork-CompareFreeSurferToMLPThresh.m  
+    └── clean-GetStimMappingResults.m  
