@@ -1,7 +1,7 @@
 %% Plot maps of thresholded MLP results and FreeSurfer Rolandic cortex on the brain surface
 
-flags.plotMLP       = true;%false;%
-flags.plotFreesurf  = true;%false;%
+flags.plotMLP       = false;%true;%
+flags.plotFreesurf  = false;%true;%
 flags.saveFigures   = false;%true;%
 
 %% init vars
@@ -16,14 +16,9 @@ mlpNetworks = {'DAN', 'VAN', 'MOT', 'VIS', 'FPC', 'LAN', 'DMN', 'noise'};
 numRSNs = 7; %8;    %NOTE: use 8 to include Noise network
 rsnMotorSensory = 3;
 currentRSN      = rsnMotorSensory;% rsnSpeech;% 
+allSensitivitySpecificity = zeros(numPatid, 2);
 
 mlpThresh = 0.89;                               %MAGICNUMBER: threshold determined by Youdan's J in ROC analysis
-
-% create colormap to use with MLP
-numStep = 100;
-% delta = (1:numStep) ./ numStep;                           % linear easing function
-delta = -(cos(pi * (1:numStep) ./ numStep)' - 1) / 2;       % in/out sine easing function
-mlpColormap = [0.5 + (0.5 * delta), 0.5 - (0.5 * delta), 0.5 - (0.5 * delta)];
 
 % codes for surface maps
 mapMLP  = 1;
@@ -35,8 +30,10 @@ combinedColormap = [    0.5,  0.5,  0.5;    % grey
                         0.25, 1.0,  0.25;   % green
                    ];
 
-figMontage = figure();
-               
+if(flags.plotFreesurf || flags.plotMLP) 
+    figMontage = figure();
+end
+
 %% loop through patids
 for patidIdx = 1:numPatid%1%
     patid = patidList{patidIdx};
@@ -79,9 +76,9 @@ for patidIdx = 1:numPatid%1%
     % load MLP weights
     weightsFilename = fullfile(inDir, 'freesurfer', [patid '_Pre'], [side 'h.MLP.motor.w']);
     [weightsList, weightsVerts] = read_wfile(weightsFilename);
-    weightsMapped = zeros(numVerts, 1);
-    weightsMapped(weightsVerts + 1) = weightsList;
-    combinedMap(weightsMapped > mlpThresh) = mapMLP;
+    weightsMappedToVerts = zeros(numVerts, 1);
+    weightsMappedToVerts(weightsVerts + 1) = weightsList;
+    combinedMap(weightsMappedToVerts > mlpThresh) = mapMLP;
     
     % load aparc annotation
     aparcFilename = fullfile(inDir, 'freesurfer', [patid '_Pre'], 'label', [side 'h.aparc.annot']);
@@ -92,55 +89,73 @@ for patidIdx = 1:numPatid%1%
     aparcColorMap = aparcColorTable.table(:, 1:3) ./ 255;       % scale RGB colors to [0, 1]
     
     % covert aparcLabel to Rolandic mask
-    numLabels = length(aparcColorMap);
     preCentralID  = find(not( cellfun('isempty', strfind(aparcColorTable.struct_names, 'precentral')) ));       % find ID of precentral label
     postCentralID = find(not( cellfun('isempty', strfind(aparcColorTable.struct_names, 'postcentral')) ));      % find ID of postcentral label
     paraCentralID = find(not( cellfun('isempty', strfind(aparcColorTable.struct_names, 'paracentral')) ));      % find ID of paracentral label
-%     rolandicIDs = [preCentralID, postCentralID];
-%     for labelIdx = 1:numLabels
-        combinedMap(aparcLabel == aparcColorTable.table(preCentralID, 5)) = combinedMap(aparcLabel == aparcColorTable.table(preCentralID, 5)) + mapFS;
-        combinedMap(aparcLabel == aparcColorTable.table(postCentralID, 5)) = combinedMap(aparcLabel == aparcColorTable.table(postCentralID, 5)) + mapFS;
-        combinedMap(aparcLabel == aparcColorTable.table(paraCentralID, 5)) = combinedMap(aparcLabel == aparcColorTable.table(paraCentralID, 5)) + mapFS;
-%     end
+    combinedMap(aparcLabel == aparcColorTable.table(preCentralID, 5)) = combinedMap(aparcLabel == aparcColorTable.table(preCentralID, 5)) + mapFS;
+    combinedMap(aparcLabel == aparcColorTable.table(postCentralID, 5)) = combinedMap(aparcLabel == aparcColorTable.table(postCentralID, 5)) + mapFS;
+    combinedMap(aparcLabel == aparcColorTable.table(paraCentralID, 5)) = combinedMap(aparcLabel == aparcColorTable.table(paraCentralID, 5)) + mapFS;
     
-    
+
+%% Calculate sensitivity & specificity for MLP vs Freesurfer
+% (FP) False Positive = MLP only : mapMLP            : red
+% (FN) False Negative = FS only  : mapFS             : blue
+% (TP) True Positive  = MLP & FS : mapMLP + mapFS    : green
+% (TN) True Negative  = neighter : 0                 : grey
+
+falsePos = size(combinedMap(combinedMap == mapMLP));
+falseNeg = size(combinedMap(combinedMap == mapFS));
+truePos = size(combinedMap(combinedMap == mapMLP + mapFS));
+trueNeg = size(combinedMap(combinedMap == 0));
+
+sensitivity = truePos / (truePos + falseNeg);
+specificity = trueNeg / (trueNeg + falsePos);
+allSensitivitySpecificity(patidIdx, :) = [sensitivity, specificity];
+
+
 %% Plotting
-    ax = subplot(3, 6, patidIdx);
+    if(flags.plotFreesurf || flags.plotMLP) % if we're plotting then this figure handle is already available
+        ax = subplot(4, 4, patidIdx);
 
-    % plot surface
-    hSurf = trisurf(faces, verts(:, 1), verts(:, 2), verts(:, 3), combinedMap);
-    colormap(combinedColormap);
-    shading interp;%flat;%
-    
-    % turn off axis box clipping
-    ax.Clipping = 'off';
+        % plot surface
+        hSurf = trisurf(faces, verts(:, 1), verts(:, 2), verts(:, 3), combinedMap);
+        colormap(combinedColormap);
+        shading interp;%flat;%
 
-    % beautify figure
-    axis off
-    axis tight;
-    axis equal;
-    axis vis3d          % hold camera position when rotating figure
+        % turn off axis box clipping
+        ax.Clipping = 'off';
 
-    % setup lighting and camera
-    lighting gouraud;
-    material([0.3, 0.8, 0.2 10 1.0]);%dull;%
-    lightObj = light;
-    if(side == 'l')
-        lightObj.Position = [-1 0 1];
-        view(270, 0);                   % lateral view
-    else
-        lightObj.Position = [1 0 1];
-        view(90, 0);                    % medial view
-    end
-    
-    if(strcmp(patid, 'EP186'))
-        lightObj.Position = [-1 0 1];
-        view(270, 0);
-    end
+        % beautify figure
+        axis off
+        axis tight;
+        axis equal;
+        axis vis3d          % hold camera position when rotating figure
 
-%     title([patid ' - Motor']);
+        % setup lighting and camera
+        lighting gouraud;
+        material([0.3, 0.8, 0.2 10 1.0]);%dull;%
+        lightObj = light;
+        if(side == 'l')
+            lightObj.Position = [-1 0 1];
+            view(270, 0);                   % lateral view
+        else
+            lightObj.Position = [1 0 1];
+            view(90, 0);                    % medial view
+        end
+
+        if(strcmp(patid, 'EP186'))
+            lightObj.Position = [-1 0 1];
+            view(270, 0);
+        end
+
+    %     title([patid ' - Motor']);
+    end %if(flags.plotFreesurf || flags.plotMLP)
     
 end %for patidIdx
+
+%% Mean sensitivity & specificity
+fprintf( 'Mean Sensitivity = %2.2f and Specificity = %2.2f \n', mean(allSensitivitySpecificity(:, 1)), mean(allSensitivitySpecificity(:, 2)) );
+
 
 %% Saving
 if(flags.saveFigures)
